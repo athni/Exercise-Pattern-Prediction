@@ -1,0 +1,100 @@
+---
+title: "PeerAssignment-PML"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Summary
+The assignment is about predicting the manner in which 6 participants did their exercise. This data was collected from accelerometers on the belt, forearm, arm, and dumbell of the participants. The output is variable "classe" which has 5 different outputs- A, B, C, D, & E.
+
+## Getting and Cleaning data
+Links were provided for the training and testing sets. We would save the final, cleaned data as 'data_final_train' and 'data_final_test'.
+urls are saved as url_train and url_test and loaded into files "pml-training.csv" and "pml-testing.csv"
+
+```{r}
+#loading all the required packages
+library(caret)
+library(randomForest)
+library(rpart)
+```
+
+```{r}
+url_train <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+url_test <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+
+download.file(url_train, destfile = "C:/Users/nkopp/Desktop/Coursera/pml-training.csv")
+download.file(url_test, destfile = "C:/Users/nkopp/Desktop/Coursera/pml-testing.csv")
+
+#saving the data into train and test sets resp.
+train <- read.csv("pml-training.csv", row.names = 1, na.strings = "")
+test <- read.csv("pml-testing.csv", row.names=1,na.strings = "NA")
+
+#Removing variables with near zero variance
+nsv <- nearZeroVar(train, saveMetrics = TRUE)
+training <- train[, !nsv$nzv]
+testing <- test[, !nsv$nzv]
+
+
+#Removing the columns which contain NAs from both the datasets
+train_rNA <- training[, colSums(is.na(training))==0]
+test_rNA <- testing[, colSums(is.na(testing))==0]
+
+#Removing unnecessary columns
+unn_cols <- c("user_name", "raw_timestamp_part_1", "raw_timestamp_part_2", "cvtd_timestamp", "new_window")
+data_final_train <- train_rNA[, !(names(train_rNA)) %in% unn_cols]
+data_final_test <- test_rNA[, !(names(test_rNA)) %in% unn_cols]
+```
+Finally, there are 55 predictors on our datasets.
+
+## Pre-processing
+We will divide the training data set into 2 subsets- training (data_train) and validation(data_validation)
+
+```{r}
+inTrain <- createDataPartition(y=data_final_train$classe, p=.7, list=FALSE)
+data_train <- data_final_train[inTrain, ]
+data_validation <- data_final_train[-inTrain, ]
+```
+
+## Model Selection
+Using random forests and decision tree with cross-validation (k=3)
+
+```{r}
+train_control <- trainControl(method="cv", number=3, savePredictions = TRUE)
+modelRF <- train(classe~., data=data_train, trControl=train_control, method="rf")
+modeltree <- train(classe~., data=data_train, trControl=train_control, method="rpart")
+```
+```{r}
+modelRF$finalModel
+modeltree$finalModel
+```
+
+##Prediction
+Applying these models on the validation dataset
+
+```{r}
+predrf <- predict(modelRF, data_validation)
+predtree <- predict(modeltree, data_validation)
+```
+
+##Checking accuracy and finalizing the model
+```{r}
+confusionMatrix(predrf, data_validation$classe)
+confusionMatrix(predtree, data_validation$classe)
+```
+
+Accuracy of Random Forest is 99.86% and that of Decision Tree is 48.75%. Will be going by Random Forest model.
+
+##Applying the model on the test data
+```{R}
+predictTest <- predict(modelRF, newdata=testing)
+print(predictTest)
+```
+
+
+
+
+
+
